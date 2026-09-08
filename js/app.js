@@ -221,7 +221,7 @@ function AugmentCard({ slot, selected, onPick, onReroll, index = 0 }) {
 
   return (
     // 카드 + 리롤 버튼을 세로로 쌓되, 버튼은 카드와 겹치지 않게 아래쪽에 별도로 둠
-    <div className="flex flex-col items-center gap-3">
+    <div className="flex flex-col items-center gap-1.5 sm:gap-3">
       <div
         role="button"
         tabIndex={0}
@@ -241,20 +241,20 @@ function AugmentCard({ slot, selected, onPick, onReroll, index = 0 }) {
 
         {/* 증강 아이콘: 배지 없이 카드 위쪽에 큼직하게 노출 (실제 게임 카드 비율 참고) */}
         <div className="absolute inset-x-0 z-10 flex items-center justify-center" style={{ top: "10%" }}>
-          <AugmentIcon augment={augment} size="w-24 h-24" emojiSize="text-6xl" />
+          <AugmentIcon augment={augment} size="w-12 h-12 sm:w-24 sm:h-24" emojiSize="text-3xl sm:text-6xl" />
         </div>
 
         {/* 본문: 아이콘 아래 남는 공간에서 세로 중앙 정렬 (짧은 설명이어도 여백이 한쪽에 몰리지 않도록) */}
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-7 pt-[38%] pb-9">
-          <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/30 mb-1 ${meta.accent}`}>
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-2 sm:px-7 pt-[36%] sm:pt-[38%] pb-3 sm:pb-9">
+          <span className={`text-[6px] sm:text-[10px] font-black uppercase tracking-wider px-1 sm:px-2 py-0.5 rounded-full bg-black/30 mb-0.5 sm:mb-1 ${meta.accent}`}>
             {meta.label}
           </span>
-          <div className="font-augment-name text-base mb-1 text-slate-100">{augment.name}</div>
-          <div className="text-xs leading-snug text-slate-400">{augment.desc}</div>
+          <div className="font-augment-name text-[10px] sm:text-base mb-0.5 sm:mb-1 leading-tight text-slate-100">{augment.name}</div>
+          <div className="text-[8px] sm:text-xs leading-snug text-slate-400">{augment.desc}</div>
         </div>
 
         {selected && (
-          <div className="absolute top-2 right-2 z-10 bg-white text-slate-900 rounded-full w-7 h-7 flex items-center justify-center font-black text-sm shadow">
+          <div className="absolute top-1 right-1 sm:top-2 sm:right-2 z-10 bg-white text-slate-900 rounded-full w-4 h-4 sm:w-7 sm:h-7 flex items-center justify-center font-black text-[9px] sm:text-sm shadow">
             ✓
           </div>
         )}
@@ -275,7 +275,7 @@ function AugmentCard({ slot, selected, onPick, onReroll, index = 0 }) {
             ? "황금 리롤: 등급이 한 단계 올라가요!"
             : "리롤: 같은 등급 안에서 다시 뽑아요"
         }
-        className={`w-9 h-9 rounded-full flex items-center justify-center bg-slate-950 border-2 transition-transform hover:scale-110 ${
+        className={`w-6 h-6 sm:w-9 sm:h-9 rounded-full flex items-center justify-center bg-slate-950 border-2 transition-transform hover:scale-110 ${
           rerollUsed
             ? "border-slate-700 text-slate-600 cursor-not-allowed opacity-70"
             : isGolden
@@ -283,7 +283,7 @@ function AugmentCard({ slot, selected, onPick, onReroll, index = 0 }) {
             : "border-sky-400 text-sky-300 shadow-[0_0_8px_rgba(56,189,248,0.5)]"
         }`}
       >
-        {rerollUsed ? <span className="text-sm font-bold">✓</span> : <RefreshIcon className="w-4 h-4" />}
+        {rerollUsed ? <span className="text-xs sm:text-sm font-bold">✓</span> : <RefreshIcon className="w-2.5 h-2.5 sm:w-4 sm:h-4" />}
       </button>
     </div>
   );
@@ -424,7 +424,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
         </div>
       </div>
 
-      <div className="flex justify-center gap-2 mb-8">
+      <div className="flex justify-center gap-1.5 sm:gap-2 mb-8">
         {LEVELS.map((lv, idx) => {
           const isActive = idx === levelIndex;
           const isDone = !!picks[lv];
@@ -432,7 +432,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
             <button
               key={lv}
               onClick={() => goToLevel(idx)}
-              className={`relative w-20 py-3 rounded-xl font-black text-lg border transition-all ${
+              className={`relative w-16 sm:w-20 py-2 sm:py-3 rounded-xl font-black text-base sm:text-lg border transition-all ${
                 isActive
                   ? "bg-sky-500 border-sky-400 text-white scale-105"
                   : isDone
@@ -456,7 +456,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
       {/* 증강 3장 */}
       <h2 className="font-bold text-slate-300 mb-4">Lv.{currentLevel} 증강 선택</h2>
 
-      <div className="grid sm:grid-cols-3 gap-4 mb-10 pt-8">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-10 pt-6 sm:pt-8">
         {currentPool.map((slot, i) => (
           <AugmentCard
             // 그 카드가 리롤될 때만 애니메이션이 재생되도록 slot.version을 key에 포함
@@ -536,40 +536,333 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
 }
 
 // ---------------------------------------------------------------------------
+// 결과 공유 이미지: 결과 화면을 <canvas>에 직접 그려서 PNG로 만듦.
+// (html2canvas 같은 DOM 캡처 라이브러리는 아이콘에 쓰는 CSS mask-image를 지원하지 않아
+//  아이콘이 빈 사각형으로 나오기 때문에, 실제 화면과 똑같은 결과물을 위해 직접 캔버스에 그림)
+// ---------------------------------------------------------------------------
+function loadImageEl(url) {
+  return new Promise((resolve) => {
+    if (!url) return resolve(null);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null); // 하나 실패해도 전체 이미지 생성은 계속 진행
+    img.src = url;
+  });
+}
+
+function drawCoverImage(ctx, img, x, y, w, h) {
+  const ir = img.naturalWidth / img.naturalHeight;
+  const tr = w / h;
+  let sx, sy, sw, sh;
+  if (ir > tr) {
+    sh = img.naturalHeight;
+    sw = sh * tr;
+    sx = (img.naturalWidth - sw) / 2;
+    sy = 0;
+  } else {
+    sw = img.naturalWidth;
+    sh = sw / tr;
+    sx = 0;
+    sy = (img.naturalHeight - sh) / 2;
+  }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+// 흰색 실루엣 아이콘 이미지를 등급별 그라데이션으로 틴트해서 그림 (화면의 mask-image와 동일한 효과)
+function drawTintedIcon(ctx, img, x, y, size, hexStops) {
+  if (!img) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+    ctx.fillStyle = hexStops[hexStops.length - 1];
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+  const off = document.createElement("canvas");
+  off.width = size * 2;
+  off.height = size * 2;
+  const octx = off.getContext("2d");
+  drawCoverImage(octx, img, 0, 0, off.width, off.height);
+  octx.globalCompositeOperation = "source-in";
+  const grad = octx.createLinearGradient(0, 0, off.width, off.height);
+  hexStops.forEach((c, i) => grad.addColorStop(i / Math.max(hexStops.length - 1, 1), c));
+  octx.fillStyle = grad;
+  octx.fillRect(0, 0, off.width, off.height);
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = 10;
+  ctx.drawImage(off, x, y, size, size);
+  ctx.restore();
+}
+
+// 긴 설명을 카드 너비에 맞게 줄바꿈 (단어 단위, 단어 자체가 너무 길면 글자 단위로 쪼갬)
+function wrapCanvasText(ctx, text, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(test).width > maxWidth) {
+      lines.push(line);
+      line = word;
+      while (line.length > 1 && ctx.measureText(line).width > maxWidth) {
+        let cut = line.length - 1;
+        while (cut > 1 && ctx.measureText(line.slice(0, cut)).width > maxWidth) cut--;
+        lines.push(line.slice(0, cut));
+        line = line.slice(cut);
+      }
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+async function buildResultShareCanvas(champion, picks) {
+  if (document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready;
+    } catch (e) {
+      /* 폰트 로드 확인 실패해도 기본 폰트로 계속 진행 */
+    }
+  }
+
+  const FONT = `'Pretendard','Noto Sans KR',sans-serif`;
+  const W = 1200,
+    H = 1020,
+    DPR = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = W * DPR;
+  canvas.height = H * DPR;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(DPR, DPR);
+
+  // 배경: 실제 페이지와 같은 방사형 그라데이션
+  const bgGrad = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, H * 0.9);
+  bgGrad.addColorStop(0, "#1e293b");
+  bgGrad.addColorStop(0.55, "#0b0f19");
+  bgGrad.addColorStop(1, "#05070c");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  const OM = 32,
+    P = 40;
+  const panelX = OM,
+    panelY = OM,
+    panelW = W - OM * 2,
+    panelH = H - OM * 2;
+  ctx.fillStyle = "rgba(15,23,42,0.7)";
+  roundRectPath(ctx, panelX, panelY, panelW, panelH, 28);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(51,65,85,0.8)";
+  ctx.lineWidth = 1.5;
+  roundRectPath(ctx, panelX, panelY, panelW, panelH, 28);
+  ctx.stroke();
+
+  ctx.fillStyle = "#34d399";
+  ctx.font = `800 15px ${FONT}`;
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("🏆 아수라장(증바람) 빌드 완성!", panelX + P, panelY + P + 14);
+
+  // 챔피언 아바타 + 이름
+  const avatarSize = 88;
+  const avatarX = panelX + P;
+  const avatarY = panelY + P + 34;
+  const champImg = await loadImageEl(window.getChampionImageUrl(champion.id));
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  if (champImg) {
+    drawCoverImage(ctx, champImg, avatarX, avatarY, avatarSize, avatarSize);
+  } else {
+    ctx.fillStyle = "#334155";
+    ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize);
+  }
+  ctx.restore();
+  ctx.strokeStyle = "rgba(148,163,184,0.4)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const nameX = avatarX + avatarSize + 24;
+  ctx.fillStyle = "#f1f5f9";
+  ctx.font = `900 30px ${FONT}`;
+  ctx.fillText(champion.name, nameX, avatarY + 38);
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = `600 17px ${FONT}`;
+  ctx.fillText(champion.role, nameX, avatarY + 66);
+
+  // 증강 카드 2x2 그리드
+  const gridTop = avatarY + avatarSize + 36;
+  const gap = 24;
+  const tileW = (panelW - P * 2 - gap) / 2;
+  const tileH = 300;
+
+  const iconImgs = await Promise.all(LEVELS.map((lv) => loadImageEl(picks[lv].iconUrl)));
+
+  LEVELS.forEach((lv, i) => {
+    const a = picks[lv];
+    const meta = window.TIER_META[a.tier];
+    const col = i % 2,
+      row = Math.floor(i / 2);
+    const tx = panelX + P + col * (tileW + gap);
+    const ty = gridTop + row * (tileH + gap);
+
+    ctx.save();
+    if (a.tier === "prism") {
+      ctx.shadowColor = "rgba(217,70,239,0.45)";
+      ctx.shadowBlur = 22;
+    } else if (a.tier === "gold") {
+      ctx.shadowColor = "rgba(250,204,21,0.35)";
+      ctx.shadowBlur = 16;
+    }
+    ctx.fillStyle = "rgba(15,23,42,0.75)";
+    roundRectPath(ctx, tx, ty, tileW, tileH, 20);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = meta.hex.border;
+    roundRectPath(ctx, tx, ty, tileW, tileH, 20);
+    ctx.stroke();
+
+    const tp = 26;
+
+    ctx.font = `800 15px ${FONT}`;
+    const chipText = `LV.${lv} · ${meta.label}`;
+    const chipTextW = ctx.measureText(chipText).width;
+    const chipPadX = 14,
+      chipH = 30;
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    roundRectPath(ctx, tx + tp, ty + tp, chipTextW + chipPadX * 2, chipH, chipH / 2);
+    ctx.fill();
+    ctx.fillStyle = meta.hex.stops[meta.hex.stops.length - 1];
+    ctx.fillText(chipText, tx + tp + chipPadX, ty + tp + chipH / 2 + 5);
+
+    const iconSize = 64;
+    drawTintedIcon(ctx, iconImgs[i], tx + tileW - tp - iconSize, ty + tp - 5, iconSize, meta.hex.stops);
+
+    ctx.fillStyle = "#f1f5f9";
+    ctx.font = `800 24px ${FONT}`;
+    const nameY = ty + tp + chipH + 42;
+    ctx.fillText(a.name, tx + tp, nameY);
+
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = `500 16px ${FONT}`;
+    const descLines = wrapCanvasText(ctx, a.desc, tileW - tp * 2);
+    descLines.slice(0, 5).forEach((line, li) => {
+      ctx.fillText(line, tx + tp, nameY + 32 + li * 23);
+    });
+  });
+
+  const footerY = gridTop + tileH * 2 + gap + 34;
+  ctx.strokeStyle = "rgba(51,65,85,0.6)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(panelX + P, footerY - 20);
+  ctx.lineTo(panelX + panelW - P, footerY - 20);
+  ctx.stroke();
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#64748b";
+  ctx.font = `600 15px ${FONT}`;
+  ctx.fillText("무작위 총력전: 아수라장(증바람) 증강 뽑기 시뮬레이터", W / 2, footerY);
+  ctx.fillStyle = "#475569";
+  ctx.font = `400 13px ${FONT}`;
+  ctx.fillText("sangkeum4281-rgb.github.io/lol-augment-simulator", W / 2, footerY + 22);
+  ctx.textAlign = "left";
+
+  return canvas;
+}
+
+// ---------------------------------------------------------------------------
 // 화면 3: 최종 결과
 // ---------------------------------------------------------------------------
 function ResultScreen({ champion, picks, onRestart }) {
-  const [copyState, setCopyState] = useState("idle"); // idle | copied | manual
+  // idle(대기) | generating(이미지 생성 중) | ready(생성 완료, 미리보기 표시) | copied(복사됨) | error(실패)
+  const [shareStatus, setShareStatus] = useState("idle");
+  const [shareImage, setShareImage] = useState(null); // { url, blob, fileName }
 
-  const buildShareText = () => {
-    const lines = [
-      `🏆 [아수라장(증바람)] ${champion.name} 빌드 완성!`,
-      ...LEVELS.map((lv) => {
-        const a = picks[lv];
-        return `Lv.${lv} ${a.icon} ${a.name} (${window.TIER_META[a.tier].label}) - ${a.desc}`;
-      }),
-      "#롤_아수라장 #증바람 #증강뽑기시뮬",
-    ];
-    return lines.join("\n");
+  // 화면을 벗어나면 만들어둔 objectURL 정리
+  useEffect(() => {
+    return () => {
+      if (shareImage) URL.revokeObjectURL(shareImage.url);
+    };
+  }, [shareImage]);
+
+  const canNativeShare = typeof navigator !== "undefined" && !!navigator.canShare;
+  const canClipboardImage = typeof navigator !== "undefined" && !!navigator.clipboard && typeof window.ClipboardItem !== "undefined";
+
+  const generateShareImage = async () => {
+    setShareStatus("generating");
+    try {
+      const canvas = await buildResultShareCanvas(champion, picks);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          setShareStatus("error");
+          return;
+        }
+        const fileName = `아수라장_${champion.name}_빌드.png`;
+        const url = URL.createObjectURL(blob);
+        setShareImage((prev) => {
+          if (prev) URL.revokeObjectURL(prev.url);
+          return { url, blob, fileName };
+        });
+        setShareStatus("ready");
+      }, "image/png");
+    } catch (e) {
+      console.error(e);
+      setShareStatus("error");
+    }
   };
 
-  const handleShare = async () => {
-    const text = buildShareText();
-    if (navigator.share) {
+  const handleNativeShare = async () => {
+    if (!shareImage) return;
+    const file = new File([shareImage.blob], shareImage.fileName, { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
-        await navigator.share({ title: "아수라장(증바람) 빌드 결과", text });
-        return;
+        await navigator.share({ files: [file], title: "아수라장(증바람) 빌드 결과", text: `${champion.name} 빌드 완성!` });
       } catch (e) {
         /* 사용자가 취소한 경우 등은 무시 */
       }
     }
+  };
+
+  const handleCopyImage = async () => {
+    if (!shareImage || !canClipboardImage) return;
     try {
-      await navigator.clipboard.writeText(text);
-      setCopyState("copied");
-      setTimeout(() => setCopyState("idle"), 2000);
+      await navigator.clipboard.write([new window.ClipboardItem({ "image/png": shareImage.blob })]);
+      setShareStatus("copied");
+      setTimeout(() => setShareStatus("ready"), 2000);
     } catch (e) {
-      setCopyState("manual");
+      setShareStatus("error");
     }
+  };
+
+  const handleDownloadImage = () => {
+    if (!shareImage) return;
+    const a = document.createElement("a");
+    a.href = shareImage.url;
+    a.download = shareImage.fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   };
 
   return (
@@ -622,20 +915,53 @@ function ResultScreen({ champion, picks, onRestart }) {
           🔄 다시 하기
         </button>
         <button
-          onClick={handleShare}
-          className="flex-1 px-6 py-3 rounded-lg font-bold bg-gradient-to-r from-sky-500 to-fuchsia-500 hover:brightness-110 text-white transition-all"
+          onClick={generateShareImage}
+          disabled={shareStatus === "generating"}
+          className={`flex-1 px-6 py-3 rounded-lg font-bold text-white transition-all ${
+            shareStatus === "generating"
+              ? "bg-slate-700 cursor-wait"
+              : "bg-gradient-to-r from-sky-500 to-fuchsia-500 hover:brightness-110"
+          }`}
         >
-          {copyState === "copied" ? "✅ 클립보드에 복사됨!" : "📤 친구에게 공유하기"}
+          {shareStatus === "generating" ? "이미지 만드는 중..." : "🖼️ 이 화면 이미지로 공유하기"}
         </button>
       </div>
 
-      {copyState === "manual" && (
-        <textarea
-          readOnly
-          className="mt-4 w-full h-40 bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-slate-300"
-          value={buildShareText()}
-          onFocus={(e) => e.target.select()}
-        />
+      {shareImage && (
+        <div className="mt-6 bg-slate-900/60 border border-slate-800 rounded-2xl p-4 anim-in">
+          <img src={shareImage.url} alt="빌드 결과 공유 이미지" className="w-full rounded-xl border border-slate-700" />
+          <p className="text-center text-xs text-slate-500 mt-3">
+            📱 모바일: 이미지를 길게 눌러 저장하거나 공유할 수 있어요 · 💻 PC: 이미지 우클릭 → "이미지 복사"로 카톡 등에 바로 붙여넣기 가능
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 mt-3">
+            {canNativeShare && (
+              <button
+                onClick={handleNativeShare}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-gradient-to-r from-sky-500 to-fuchsia-500 hover:brightness-110 text-white transition-all"
+              >
+                📤 공유하기
+              </button>
+            )}
+            {canClipboardImage && (
+              <button
+                onClick={handleCopyImage}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 hover:bg-slate-700 border border-slate-600 transition-colors"
+              >
+                {shareStatus === "copied" ? "✅ 복사됨!" : "📋 이미지 복사"}
+              </button>
+            )}
+            <button
+              onClick={handleDownloadImage}
+              className="px-4 py-2 rounded-lg text-sm font-bold bg-slate-800 hover:bg-slate-700 border border-slate-600 transition-colors"
+            >
+              ⬇️ 다운로드
+            </button>
+          </div>
+        </div>
+      )}
+
+      {shareStatus === "error" && (
+        <p className="text-center text-sm text-rose-400 mt-3">이미지 생성에 실패했어요. 다시 시도해주세요.</p>
       )}
     </div>
   );

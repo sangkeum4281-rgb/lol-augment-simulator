@@ -459,15 +459,19 @@ window.TIER_META = {
     border: "border-slate-600", accent: "text-slate-300",
     // 아이콘(대부분 흰색 실루엣)에 등급별 색을 입히는 CSS 필터
     iconFilter: "saturate(0.85) brightness(1.05)",
+    // 결과 공유 이미지를 <canvas>로 직접 그릴 때 쓰는 실제 색상값 (위 grad/border의 Tailwind 클래스와 맞춤)
+    hex: { stops: ["#64748b", "#cbd5e1"], border: "#475569" },
   },
   gold: {
     label: "골드", ring: "ring-amber-300", grad: "from-amber-600 to-yellow-300", text: "text-amber-50", glow: "shadow-[0_0_18px_rgba(250,204,21,0.45)]",
     border: "border-amber-500/70", accent: "text-amber-300",
     iconFilter: "sepia(0.75) saturate(3.5) hue-rotate(10deg) brightness(1.15)",
+    hex: { stops: ["#d97706", "#fde047"], border: "#f59e0b" },
   },
   prism: {
     label: "프리즘", ring: "ring-fuchsia-300", grad: "from-fuchsia-500 via-purple-400 to-sky-300", text: "text-white", glow: "shadow-[0_0_24px_rgba(217,70,239,0.55)] animate-pulse",
     border: "border-fuchsia-400/70", accent: "text-fuchsia-200",
     iconFilter: "sepia(1) saturate(6) hue-rotate(220deg) brightness(1.15)",
+    hex: { stops: ["#d946ef", "#c084fc", "#7dd3fc"], border: "#e879f9" },
   },
 };
