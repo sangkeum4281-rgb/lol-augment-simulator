@@ -229,7 +229,7 @@ function AugmentCard({ slot, selected, onPick, onReroll, index = 0 }) {
         onKeyDown={handleKeyDown}
         style={{ animationDelay: `${index * 90}ms`, aspectRatio: "322 / 502" }}
         className={`augment-pop relative w-full max-w-[240px] mx-auto rounded-2xl cursor-pointer select-none transition-transform ${
-          selected ? `ring-4 ${meta.ring} scale-[1.03]` : "hover:scale-[1.02] hover:-translate-y-0.5"
+          selected ? `ring-4 ${meta.ring}` : "hover:scale-[1.02] hover:-translate-y-0.5"
         }`}
       >
         {/* 증강 카드 배경 + 등급별 테두리 프레임: 라이엇 CommunityDragon 공식 에셋(아레나/아수라장 증강 선택 화면과 동일) */}
