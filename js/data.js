@@ -607,3 +607,16 @@ window.computeSynergy = function (champion, augments) {
   return { pct, verdict, topTags, perAugment };
 };
 
+// ---------------------------------------------------------------------------
+// 챔피언별 증강 뽑기 가중치
+// 위 궁합 점수(scoreAugmentForRole)를 재사용해서, 뽑기 풀에 뜨는 확률을 아주 약하게
+// 챔피언 쪽으로 기울임. 1이 중립(가중치 없음) — 궁합 raw 점수(-2.5~3)를 그대로 곱하지 않고
+// 0.15배만 반영해서 "그래도 대부분 무작위"인 느낌을 유지함(안 맞는 증강도 여전히 나올 수 있음).
+// ---------------------------------------------------------------------------
+const FIT_WEIGHT_FACTOR = 0.15;
+window.getAugmentFitWeight = function (augment, champion) {
+  if (!champion) return 1;
+  const { raw } = scoreAugmentForRole(augment, champion.role);
+  return Math.max(0.35, 1 + raw * FIT_WEIGHT_FACTOR);
+};
+

@@ -42,10 +42,12 @@ function augmentPoolForLevel(level) {
 
 // 특정 등급 안에서 하나만 뽑기 (카드 개별 리롤용). level을 넘기면 해당 레벨 기준으로
 // 퀘스트 증강 제외 규칙까지 같이 적용됨(리롤/전환 등 모든 경로에서 규칙이 새지 않도록).
-function pickOneOfTier(tier, excludeIds = [], level = null) {
+// champion을 넘기면 궁합 가중치(window.getAugmentFitWeight)만큼 확률이 살짝 기울어짐.
+function pickOneOfTier(tier, excludeIds = [], level = null, champion = null) {
   const basePool = level != null ? augmentPoolForLevel(level) : window.AUGMENTS;
   const candidates = basePool.filter((a) => a.tier === tier && !excludeIds.includes(a.id));
   const pool = candidates.length > 0 ? candidates : basePool.filter((a) => a.tier === tier);
+  if (champion) return weightedPickOne(pool, (a) => window.getAugmentFitWeight(a, champion));
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -60,17 +62,38 @@ function pickNUnique(list, n) {
   return picked;
 }
 
+// pickNUnique의 가중치 버전: 매번 뽑을 때마다 남은 후보들 중에서 weightFn 비중대로 하나를 골라
+// 빼내는 걸 n번 반복 — 챔피언 궁합 좋은 증강이 "더 잘 뜨긴 하지만 여전히 무작위"이게 함
+function pickNUniqueWeighted(list, n, weightFn) {
+  const pool = list.slice();
+  const picked = [];
+  for (let i = 0; i < n && pool.length > 0; i++) {
+    const total = pool.reduce((sum, it) => sum + Math.max(weightFn(it), 0.0001), 0);
+    let r = Math.random() * total;
+    let idx = pool.length - 1;
+    for (let j = 0; j < pool.length; j++) {
+      r -= Math.max(weightFn(pool[j]), 0.0001);
+      if (r <= 0) { idx = j; break; }
+    }
+    picked.push(pool.splice(idx, 1)[0]);
+  }
+  return picked;
+}
+
 // 실제 게임 규칙: 한 번의 증강 선택 라운드에서는 "라운드 전체"가 하나의 등급으로 결정되고,
 // 그 라운드에 뜨는 3장은 전부 같은 등급 안에서만 뽑힘 (골드가 뜨면 3장 다 골드).
 // 예외는 오직 황금 리롤 하나뿐 — 그걸로 리롤한 카드 한 장만 한 단계 위 등급으로 바뀜.
-function makePool(level, excludeIds = []) {
+// champion을 넘기면 그 챔피언과 궁합 좋은 증강이 살짝 더 잘 뜨도록 가중치가 걸림(약하게).
+function makePool(level, excludeIds = [], champion = null) {
   const weights = window.LEVEL_TIER_WEIGHTS[level];
   const roundTier = weightedPickOne(TIER_ORDER, (tier) => weights[tier]);
   const basePool = augmentPoolForLevel(level);
 
   const candidates = basePool.filter((a) => a.tier === roundTier && !excludeIds.includes(a.id));
   const pool = candidates.length >= 3 ? candidates : basePool.filter((a) => a.tier === roundTier);
-  const picked = pickNUnique(pool, 3);
+  const picked = champion
+    ? pickNUniqueWeighted(pool, 3, (a) => window.getAugmentFitWeight(a, champion))
+    : pickNUnique(pool, 3);
 
   return picked.map((augment, i) => ({
     slotId: `${level}-${i}`,
@@ -315,7 +338,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
   const markUsed = (ids) => ids.forEach((id) => usedIdsRef.current.add(id));
 
   const [pools, setPools] = useState(() => {
-    const firstPool = makePool(LEVELS[0], []);
+    const firstPool = makePool(LEVELS[0], [], champion);
     markUsed(firstPool.map((slot) => slot.augment.id));
     return { [LEVELS[0]]: firstPool };
   });
@@ -326,11 +349,11 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
   const ensurePool = useCallback((level) => {
     setPools((prev) => {
       if (prev[level]) return prev;
-      const newPool = makePool(level, Array.from(usedIdsRef.current));
+      const newPool = makePool(level, Array.from(usedIdsRef.current), champion);
       markUsed(newPool.map((slot) => slot.augment.id));
       return { ...prev, [level]: newPool };
     });
-  }, []);
+  }, [champion]);
 
   const goToLevel = (idx) => {
     setLevelIndex(idx);
@@ -349,7 +372,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
         const baseline = { ...prev, [currentLevel]: augment };
         const converted = {};
         Object.keys(baseline).forEach((lv) => {
-          const newAugment = pickOneOfTier("prism", Array.from(usedIdsRef.current), Number(lv));
+          const newAugment = pickOneOfTier("prism", Array.from(usedIdsRef.current), Number(lv), champion);
           markUsed([newAugment.id]);
           converted[lv] = newAugment;
         });
@@ -361,7 +384,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
     if (augment.special === "transmute") {
       // 선택 즉시 지정된 등급의 무작위 증강 하나로 바뀜 (전환: 프리즘 등).
       // 원래 무슨 증강이었는지 알 수 있도록 이름 앞에 "전환: "을 붙여서 보여줌.
-      const newAugment = pickOneOfTier(augment.transmuteTier, Array.from(usedIdsRef.current), currentLevel);
+      const newAugment = pickOneOfTier(augment.transmuteTier, Array.from(usedIdsRef.current), currentLevel, champion);
       markUsed([newAugment.id]);
       setPicks((prev) => ({
         ...prev,
@@ -383,7 +406,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
       autoAdvanceTimer.current = setTimeout(() => {
         setPools((prev) => {
           if (prev[nextLevel]) return prev;
-          const newPool = makePool(nextLevel, Array.from(usedIdsRef.current));
+          const newPool = makePool(nextLevel, Array.from(usedIdsRef.current), champion);
           markUsed(newPool.map((slot) => slot.augment.id));
           return { ...prev, [nextLevel]: newPool };
         });
@@ -399,7 +422,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
     if (!slot || slot.rerollUsed) return;
 
     const targetTier = slot.isGolden ? nextTier(slot.augment.tier) : slot.augment.tier;
-    const newAugment = pickOneOfTier(targetTier, Array.from(usedIdsRef.current), currentLevel);
+    const newAugment = pickOneOfTier(targetTier, Array.from(usedIdsRef.current), currentLevel, champion);
     markUsed([newAugment.id]);
 
     setPools((prev) => ({
