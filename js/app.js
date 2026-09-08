@@ -31,10 +31,21 @@ function weightedPickOne(items, weightFn) {
   return items[items.length - 1];
 }
 
-// 특정 등급 안에서 하나만 뽑기 (카드 개별 리롤용)
-function pickOneOfTier(tier, excludeIds = []) {
-  const candidates = window.AUGMENTS.filter((a) => a.tier === tier && !excludeIds.includes(a.id));
-  const pool = candidates.length > 0 ? candidates : window.AUGMENTS.filter((a) => a.tier === tier);
+// "퀘스트: OOO" 이름의 증강은 조건을 채울 시간이 필요해서, 3번째 라운드(11레벨)부터는
+// 뽑기 풀에서 제외 — 1/2번째 라운드(3/7레벨)까지만 등장하도록 함.
+function isQuestAugment(augment) {
+  return augment.name.startsWith("퀘스트:");
+}
+function augmentPoolForLevel(level) {
+  return level > LEVELS[1] ? window.AUGMENTS.filter((a) => !isQuestAugment(a)) : window.AUGMENTS;
+}
+
+// 특정 등급 안에서 하나만 뽑기 (카드 개별 리롤용). level을 넘기면 해당 레벨 기준으로
+// 퀘스트 증강 제외 규칙까지 같이 적용됨(리롤/전환 등 모든 경로에서 규칙이 새지 않도록).
+function pickOneOfTier(tier, excludeIds = [], level = null) {
+  const basePool = level != null ? augmentPoolForLevel(level) : window.AUGMENTS;
+  const candidates = basePool.filter((a) => a.tier === tier && !excludeIds.includes(a.id));
+  const pool = candidates.length > 0 ? candidates : basePool.filter((a) => a.tier === tier);
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -55,9 +66,10 @@ function pickNUnique(list, n) {
 function makePool(level, excludeIds = []) {
   const weights = window.LEVEL_TIER_WEIGHTS[level];
   const roundTier = weightedPickOne(TIER_ORDER, (tier) => weights[tier]);
+  const basePool = augmentPoolForLevel(level);
 
-  const candidates = window.AUGMENTS.filter((a) => a.tier === roundTier && !excludeIds.includes(a.id));
-  const pool = candidates.length >= 3 ? candidates : window.AUGMENTS.filter((a) => a.tier === roundTier);
+  const candidates = basePool.filter((a) => a.tier === roundTier && !excludeIds.includes(a.id));
+  const pool = candidates.length >= 3 ? candidates : basePool.filter((a) => a.tier === roundTier);
   const picked = pickNUnique(pool, 3);
 
   return picked.map((augment, i) => ({
@@ -337,7 +349,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
         const baseline = { ...prev, [currentLevel]: augment };
         const converted = {};
         Object.keys(baseline).forEach((lv) => {
-          const newAugment = pickOneOfTier("prism", Array.from(usedIdsRef.current));
+          const newAugment = pickOneOfTier("prism", Array.from(usedIdsRef.current), Number(lv));
           markUsed([newAugment.id]);
           converted[lv] = newAugment;
         });
@@ -349,7 +361,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
     if (augment.special === "transmute") {
       // 선택 즉시 지정된 등급의 무작위 증강 하나로 바뀜 (전환: 프리즘 등).
       // 원래 무슨 증강이었는지 알 수 있도록 이름 앞에 "전환: "을 붙여서 보여줌.
-      const newAugment = pickOneOfTier(augment.transmuteTier, Array.from(usedIdsRef.current));
+      const newAugment = pickOneOfTier(augment.transmuteTier, Array.from(usedIdsRef.current), currentLevel);
       markUsed([newAugment.id]);
       setPicks((prev) => ({
         ...prev,
@@ -387,7 +399,7 @@ function AugmentSelectScreen({ champion, onFinish, onBack }) {
     if (!slot || slot.rerollUsed) return;
 
     const targetTier = slot.isGolden ? nextTier(slot.augment.tier) : slot.augment.tier;
-    const newAugment = pickOneOfTier(targetTier, Array.from(usedIdsRef.current));
+    const newAugment = pickOneOfTier(targetTier, Array.from(usedIdsRef.current), currentLevel);
     markUsed([newAugment.id]);
 
     setPools((prev) => ({
