@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>무작위 총력전: 아수라장(증바람) - 증강 뽑기 시뮬레이터</title>
+
+<!-- Tailwind CSS (CDN, 빌드 불필요) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- 제목/증강 이름용 디스플레이 폰트 (Cinzel, Montserrat) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet" />
+<!-- 한글 본문용 폰트: Pretendard (실패 시 Noto Sans KR로 폴백) -->
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+<!-- React 18 (UMD) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+
+<!-- Babel standalone: 브라우저에서 바로 JSX 변환 (빌드 툴 없이 실행하기 위함) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<style>
+  body {
+    background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0b0f19 55%, #05070c 100%);
+    min-height: 100vh;
+    font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  /* 큰 제목(챔피언 선택 화면 헤드라인, 결과 화면 타이틀 등)용 판타지풍 디스플레이 폰트 */
+  .font-title {
+    font-family: "Cinzel", "Montserrat", "Pretendard", "Noto Sans KR", serif;
+  }
+  /* 증강 카드 이름 등 강조 라벨용 폰트 (한글은 자동으로 Pretendard/Noto Sans KR로 대체됨) */
+  .font-augment-name {
+    font-family: "Montserrat", "Pretendard", "Noto Sans KR", sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translateY(6px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .anim-in { animation: floatUp 0.25s ease-out both; }
+
+  /* 증강 카드 프레임: 실제 게임의 세로 카드(짙은 배경 + 은은한 비네트 + 테두리)를 참고 */
+  .augment-frame {
+    background:
+      radial-gradient(120% 140% at 50% -10%, rgba(255,255,255,0.07), transparent 55%),
+      linear-gradient(180deg, #12151d 0%, #0a0c12 100%);
+    border-width: 2px;
+    border-style: solid;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05), 0 10px 26px rgba(0,0,0,0.4);
+  }
+
+  /* 카드가 열리는 순간 한 번 대각선으로 훑고 지나가는 빛 */
+  .augment-shine {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,0.35) 50%, transparent 60%);
+    background-size: 250% 250%;
+    background-position: -120% -120%;
+    opacity: 0;
+    animation: shineSweep 0.9s ease-out both;
+  }
+  @keyframes shineSweep {
+    0% { opacity: 0; background-position: -120% -120%; }
+    15% { opacity: 1; }
+    60% { opacity: 0.9; }
+    100% { opacity: 0; background-position: 120% 120%; }
+  }
+
+  /* 증강 카드 3장이 순서대로 톡톡 튀어나오듯 등장하는 연출 */
+  @keyframes cardPop {
+    0% { opacity: 0; transform: translateY(18px) scale(0.85); }
+    70% { opacity: 1; transform: translateY(-4px) scale(1.02); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .augment-pop { animation: cardPop 0.45s cubic-bezier(.2,.8,.2,1) both; }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .prism-shimmer {
+    background-image: linear-gradient(110deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 70%);
+    background-size: 200% 100%;
+    animation: shimmer 2.2s infinite;
+  }
+</style>
+</head>
+<body class="text-slate-100">
+  <div id="root"></div>
+
+  <!-- Mock 데이터 -->
+  <script src="js/data.js"></script>
+  <!-- 앱 로직 (JSX, Babel이 브라우저에서 변환) -->
+  <script type="text/babel" src="js/app.js"></script>
+</body>
+</html>
