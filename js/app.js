@@ -216,8 +216,10 @@ function AugmentCard({ slot, selected, onPick, onReroll, index = 0 }) {
   };
 
   // CommunityDragon 원본 에셋(512x512)은 카드 모양 주위에 투명 여백이 있어서,
-  // 실제 카드가 차지하는 부분만 확대(159%/103%)해 보여줌 — 배경/프레임 두 레이어가 같은 좌표계라 그대로 겹쳐 맞음
-  const cardArtStyle = { backgroundSize: "159% 103%", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
+  // CommunityDragon 원본 에셋(512x512)은 실제 카드가 가로로 약 60.9%만 차지하고 나머지가
+  // 투명 여백이라, 그 실측값(100/0.609 ≈ 164.2%)만큼 확대해야 카드 테두리가 컨테이너 경계에
+  // 딱 맞음 — 이전 값(159%/103%)은 눈대중이라 살짝 작아서 선택 테두리가 카드보다 크게 붕 떠 보였음
+  const cardArtStyle = { backgroundSize: "164.2% 100%", backgroundPosition: "center", backgroundRepeat: "no-repeat" };
 
   return (
     // 카드 + 리롤 버튼을 세로로 쌓되, 버튼은 카드와 겹치지 않게 아래쪽에 별도로 둠
@@ -229,7 +231,7 @@ function AugmentCard({ slot, selected, onPick, onReroll, index = 0 }) {
         onKeyDown={handleKeyDown}
         style={{ animationDelay: `${index * 90}ms`, aspectRatio: "322 / 502" }}
         className={`augment-pop relative w-full max-w-[240px] mx-auto rounded-2xl cursor-pointer select-none transition-transform ${
-          selected ? `ring-4 ${meta.ring}` : "hover:scale-[1.02] hover:-translate-y-0.5"
+          selected ? `ring-4 ring-inset ${meta.ring}` : "hover:scale-[1.02] hover:-translate-y-0.5"
         }`}
       >
         {/* 증강 카드 배경 + 등급별 테두리 프레임: 라이엇 CommunityDragon 공식 에셋(아레나/아수라장 증강 선택 화면과 동일) */}
