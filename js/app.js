@@ -794,6 +794,46 @@ async function buildResultShareCanvas(champion, picks) {
 // ---------------------------------------------------------------------------
 // 화면 3: 최종 결과
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// 궁합도 게이지: 뽑은 증강이 챔피언 역할군과 얼마나 어울리는지 점수로 보여줌
+// ---------------------------------------------------------------------------
+function SynergyMeter({ champion, picks }) {
+  const synergy = useMemo(
+    () => window.computeSynergy(champion, LEVELS.map((lv) => picks[lv])),
+    [champion, picks]
+  );
+  const { pct, verdict, topTags } = synergy;
+
+  const barColor =
+    pct >= 85 ? "from-emerald-400 to-teal-300" :
+    pct >= 70 ? "from-sky-400 to-cyan-300" :
+    pct >= 50 ? "from-amber-400 to-yellow-300" :
+    pct >= 30 ? "from-orange-500 to-amber-400" :
+    "from-rose-500 to-red-400";
+
+  return (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 mb-6 anim-in">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-bold text-slate-300">🧩 {champion.role} 궁합도</span>
+        <span className="text-2xl font-black">
+          {pct}
+          <span className="text-sm text-slate-500 font-bold">점</span>
+        </span>
+      </div>
+      <div className="h-3 rounded-full bg-slate-800 overflow-hidden mb-3">
+        <div
+          className={`h-full rounded-full bg-gradient-to-r ${barColor} transition-all duration-700`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-sm text-slate-300">{verdict}</p>
+      {topTags.length > 0 && (
+        <p className="text-xs text-slate-500 mt-1">핵심 키워드: {topTags.join(" · ")}</p>
+      )}
+    </div>
+  );
+}
+
 function ResultScreen({ champion, picks, onRestart }) {
   // idle(대기) | generating(이미지 생성 중) | ready(생성 완료, 미리보기 표시) | copied(복사됨) | error(실패)
   const [shareStatus, setShareStatus] = useState("idle");
@@ -871,6 +911,8 @@ function ResultScreen({ champion, picks, onRestart }) {
         <p className="text-emerald-400 font-semibold tracking-widest text-sm mb-2">BUILD COMPLETE</p>
         <h1 className="font-title text-3xl font-black">최종 빌드 결과</h1>
       </div>
+
+      <SynergyMeter champion={champion} picks={picks} />
 
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 mb-6 anim-in">
         <div className="flex items-center gap-4 mb-6">

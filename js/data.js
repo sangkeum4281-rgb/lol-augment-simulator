@@ -475,3 +475,135 @@ window.TIER_META = {
     hex: { stops: ["#d946ef", "#c084fc", "#7dd3fc"], border: "#e879f9" },
   },
 };
+
+// ---------------------------------------------------------------------------
+// 궁합(시너지) 분석
+// 증강 데이터에 별도 태그가 없어서, name+desc 문구를 키워드로 스캔해 즉석에서
+// 성향 태그를 매기고, 챔피언 역할군(role)별 선호/비선호 가중치와 매칭해 점수화합니다.
+// 어디까지나 "역할군 기준"의 대략적인 재미 요소이며, 실제 게임 밸런스·픽률과는 다를 수 있어요.
+// ---------------------------------------------------------------------------
+// 각 태그: include 정규식 중 하나라도 매치 + exclude 정규식에 안 걸려야 최종 채택.
+// exclude는 "적 디버프 서술"이나 "자기 자신 스탯 감소(글래스 캐넌형)"처럼
+// 겉으로는 키워드가 있어도 실제 방향이 반대인 오탐 케이스를 걸러내기 위한 것.
+const TAG_RULES = {
+  AD: {
+    include: [/물리\s*피해/, /공격력(이|을|의)/, /물리\s*관통력/, /방어구\s*관통력/, /무한의\s*대검/],
+  },
+  AP: {
+    include: [/주문력/, /마법\s*피해/, /마법\s*관통력/],
+  },
+  ATK_SPEED: {
+    include: [/공격\s*속도/],
+    exclude: [/공격\s*속도.{0,10}감소/],
+  },
+  CRIT: {
+    include: [/치명타/],
+  },
+  RANGE: {
+    include: [/사거리/],
+  },
+  TANK: {
+    // "체력을 얻" 추가: "1000의 체력을 얻지만" 같은 변형 문구도 포착
+    include: [/방어력/, /마법\s*저항력/, /최대\s*체력/, /체력을\s*얻/, /무적/, /크기가\s*커/],
+    // 예: "부식"(적 방어력 감소 디버프), "유리 대포"(자기 최대 체력 감소) 같은 반대 방향 오탐 제거
+    exclude: [/방어력.{0,10}감소/, /마법\s*저항력.{0,10}감소/, /최대\s*체력.{0,10}감소/],
+  },
+  SUSTAIN: {
+    include: [/회복/, /흡혈/, /재생/],
+  },
+  SHIELD: {
+    include: [/보호막/],
+  },
+  MOBILITY: {
+    include: [/이동\s*속도/, /돌진/, /점멸/, /순간이동/],
+    // 예: "차가운 냉기"(적 이동 속도 추가 감소 = CC 강화이지 자기 이동기 아님)
+    exclude: [/이동\s*속도.{0,10}감소/],
+  },
+  CC: {
+    include: [/군중\s*제어/, /둔화/, /속박/, /이동\s*불가/, /도발/, /매혹/, /공중으로/],
+  },
+  SKILL_ACCEL: {
+    include: [/스킬\s*가속/],
+  },
+  SUPPORT: {
+    include: [/아군/],
+    // 예: "흡혈병"(아군 회복을 못 받는 페널티 서술) 같은 반대 방향 오탐 제거
+    exclude: [/아군.{0,60}(받을\s*수\s*없|얻을\s*수\s*없)/],
+  },
+};
+
+const TAG_LABEL = {
+  AD: "공격력", AP: "주문력", ATK_SPEED: "공격 속도", CRIT: "치명타",
+  RANGE: "사거리", TANK: "방어/체력", SUSTAIN: "회복/흡혈", SHIELD: "보호막",
+  MOBILITY: "이동기", CC: "군중 제어", SKILL_ACCEL: "스킬 가속", SUPPORT: "아군 지원",
+};
+
+// 역할군별 선호(+) / 비선호(-) 태그 가중치
+const ROLE_WEIGHTS = {
+  "전사": { AD: 2, TANK: 1.5, SUSTAIN: 1.2, SHIELD: 0.8, MOBILITY: 1, CC: 0.5, AP: -1.5 },
+  "마법사": { AP: 2, SKILL_ACCEL: 1.5, SUSTAIN: 0.5, RANGE: 0.5, AD: -1.5, ATK_SPEED: -1 },
+  "암살자": { AD: 2, CRIT: 1.5, MOBILITY: 1.5, ATK_SPEED: 1, TANK: -0.8 },
+  "원거리 딜러": { AD: 1.5, ATK_SPEED: 2, CRIT: 1.5, RANGE: 1, SKILL_ACCEL: -0.5, TANK: -0.5 },
+  "탱커": { TANK: 2, CC: 1.5, SUSTAIN: 1, SHIELD: 1, CRIT: -1.2, ATK_SPEED: -0.8, AD: -0.5 },
+  "서포터": { SUPPORT: 2, CC: 1, SUSTAIN: 1, SHIELD: 1, SKILL_ACCEL: 0.7, CRIT: -1.2, ATK_SPEED: -1, AD: -0.8 },
+};
+
+function getAugmentTags(augment) {
+  const text = `${augment.name} ${augment.desc}`;
+  return Object.keys(TAG_RULES).filter((tag) => {
+    const { include, exclude = [] } = TAG_RULES[tag];
+    const matched = include.some((re) => re.test(text));
+    if (!matched) return false;
+    return !exclude.some((re) => re.test(text));
+  });
+}
+
+function scoreAugmentForRole(augment, role) {
+  const weights = ROLE_WEIGHTS[role] || {};
+  const tags = getAugmentTags(augment);
+  const hitTags = [];
+  let raw = 0;
+  tags.forEach((tag) => {
+    const w = weights[tag];
+    if (w) {
+      raw += w;
+      hitTags.push({ tag, weight: w });
+    }
+  });
+  // 한 장이 태그를 여러 개 겹쳐서 너무 크게 튀지 않도록 클램프
+  raw = Math.max(-2.5, Math.min(3, raw));
+  return { raw, tags, hitTags };
+}
+
+// champion: {role, ...}, augments: 챔피언이 실제로 고른 증강 객체 배열(순서 무관)
+window.computeSynergy = function (champion, augments) {
+  const role = champion.role;
+  const perAugment = augments.map((augment) => {
+    const { raw, tags, hitTags } = scoreAugmentForRole(augment, role);
+    return { augment, raw, tags, hitTags };
+  });
+
+  const total = perAugment.reduce((sum, p) => sum + p.raw, 0);
+  const pct = Math.round(Math.max(0, Math.min(100, 50 + total * 6.25)));
+
+  let verdict;
+  if (pct >= 85) verdict = "완벽한 시너지! 이 조합, 챌린저 감이에요.";
+  else if (pct >= 70) verdict = `${role} 특성과 꽤 잘 어울리는 빌드예요.`;
+  else if (pct >= 50) verdict = "무난하게 굴러가는 조합이에요.";
+  else if (pct >= 30) verdict = "살짝 엇박자가 있는 빌드예요.";
+  else verdict = `${role}답지 않은 파격 빌드… 그래도 재미로는 최고!`;
+
+  // 가장 긍정적으로 기여한 태그 상위 2개를 근거 문구로 제시
+  const tagTotals = {};
+  perAugment.forEach((p) => p.hitTags.forEach(({ tag, weight }) => {
+    tagTotals[tag] = (tagTotals[tag] || 0) + weight;
+  }));
+  const topTags = Object.entries(tagTotals)
+    .sort((a, b) => b[1] - a[1])
+    .filter(([, w]) => w > 0)
+    .slice(0, 2)
+    .map(([tag]) => TAG_LABEL[tag]);
+
+  return { pct, verdict, topTags, perAugment };
+};
+
