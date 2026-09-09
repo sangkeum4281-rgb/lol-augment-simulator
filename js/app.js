@@ -114,25 +114,32 @@ function weightedPickOne(items, weightFn) {
 function isQuestAugment(augment) {
   return augment.name.startsWith("퀘스트:");
 }
-// "특정 챔피언 전용" 증강(예: 아리 전용 "소나타")은 다른 챔피언에게는 아예 뜨면 안 되고,
-// "적을 이동 불가 상태로 만들면 ~" 류(requiresCC)는 하드 CC 스킬이 없는 챔피언에게는 발동
-// 자체가 불가능한 죽은 카드라서, 둘 다 궁합 가중치가 아니라 풀에서 완전히 제외한다.
-function isAugmentAvailableFor(augment, champion) {
-  if (augment.champion && augment.champion !== (champion && champion.id)) return false;
-  if (augment.requiresCC && !(champion && champion.cc)) return false;
+// Champion - Augment 매칭 필터 (태그 체계는 js/data.js 상단 주석 참고).
+// 1) exclusiveTo: 그 챔피언이 아니면 무조건 제외 (예: "공포의 허수아비" 피들스틱 전용 "흡수")
+// 2) requires: 챔피언이 해당 태그를 전부 가지고 있어야 등장 (예: CC 트리거형 증강 → cc_hard)
+// 3) forbidden: 챔피언이 해당 태그를 하나라도 가지고 있으면 제외
+// 이 세 가지는 "궁합이 안 맞음"이 아니라 "발동 자체가 불가능한 죽은 카드"를 걸러내는 거라서,
+// window.getAugmentFitWeight처럼 확률만 낮추는 게 아니라 풀에서 완전히 제외한다.
+function isAugmentValidFor(augment, champion) {
+  if (augment.exclusiveTo && augment.exclusiveTo !== (champion && champion.id)) return false;
+  const tags = (champion && champion.tags) || [];
+  const requires = augment.requires || [];
+  const forbidden = augment.forbidden || [];
+  if (!requires.every((t) => tags.includes(t))) return false;
+  if (forbidden.some((t) => tags.includes(t))) return false;
   return true;
 }
 function augmentPoolForLevel(level, champion = null) {
   const base = level > LEVELS[1] ? window.AUGMENTS.filter((a) => !isQuestAugment(a)) : window.AUGMENTS;
-  return base.filter((a) => isAugmentAvailableFor(a, champion));
+  return base.filter((a) => isAugmentValidFor(a, champion));
 }
 
 // 특정 등급 안에서 하나만 뽑기 (카드 개별 리롤용). level을 넘기면 해당 레벨 기준으로
 // 퀘스트 증강 제외 규칙까지 같이 적용됨(리롤/전환 등 모든 경로에서 규칙이 새지 않도록).
-// champion을 넘기면 (1) 챔피언 전용 증강 필터링 + (2) 궁합 가중치(window.getAugmentFitWeight)만큼
+// champion을 넘기면 (1) 챔피언-증강 매칭 필터링 + (2) 궁합 가중치(window.getAugmentFitWeight)만큼
 // 확률이 살짝 기울어짐.
 function pickOneOfTier(tier, excludeIds = [], level = null, champion = null) {
-  const basePool = level != null ? augmentPoolForLevel(level, champion) : window.AUGMENTS.filter((a) => isAugmentAvailableFor(a, champion));
+  const basePool = level != null ? augmentPoolForLevel(level, champion) : window.AUGMENTS.filter((a) => isAugmentValidFor(a, champion));
   const candidates = basePool.filter((a) => a.tier === tier && !excludeIds.includes(a.id));
   const pool = candidates.length > 0 ? candidates : basePool.filter((a) => a.tier === tier);
   if (champion) return weightedPickOne(pool, (a) => window.getAugmentFitWeight(a, champion));
