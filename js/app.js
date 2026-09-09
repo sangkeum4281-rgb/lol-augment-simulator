@@ -56,6 +56,40 @@ async function fetchPickCounts() {
   }
 }
 
+// 다른 사람들이 최근에 뽑은 빌드 목록 조회 (최신순). 실패 시 null.
+async function fetchRecentPicks(limit = 30) {
+  if (!statsClient) return null;
+  try {
+    const { data, error } = await statsClient
+      .from("picks")
+      .select("champion_id, champion_name, augments, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) return null;
+    return data;
+  } catch (e) {
+    console.warn("[stats] 최근 빌드 조회 실패:", e);
+    return null;
+  }
+}
+
+// DB에는 { id, name, tier, level }만 저장돼있어서, 아이콘/설명은 현재 데이터에서 id로 다시 찾아옴.
+// (나중에 증강 목록이 바뀌어 id가 사라져도 화면이 깨지지 않도록 안전한 기본값을 둠)
+function resolveStoredAugment(stored) {
+  const full = window.AUGMENTS.find((a) => a.id === stored.id);
+  return full || { ...stored, icon: "❔", iconUrl: null, desc: "(더 이상 존재하지 않는 증강)" };
+}
+
+function timeAgo(isoString) {
+  const diffSec = Math.max(0, Math.floor((Date.now() - new Date(isoString).getTime()) / 1000));
+  if (diffSec < 60) return "방금 전";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  return `${Math.floor(diffHour / 24)}일 전`;
+}
+
 function nextTier(tier) {
   const idx = TIER_ORDER.indexOf(tier);
   return TIER_ORDER[Math.min(idx + 1, TIER_ORDER.length - 1)];
@@ -934,7 +968,98 @@ function SynergyMeter({ champion, picks }) {
   );
 }
 
-function ResultScreen({ champion, picks, onRestart }) {
+// ---------------------------------------------------------------------------
+// 화면: 다른 사람들이 뽑은 빌드 구경하기
+// ---------------------------------------------------------------------------
+function CommunityPicksScreen({ onBack }) {
+  const [state, setState] = useState("loading"); // loading | ready | error
+  const [rows, setRows] = useState([]);
+
+  const load = useCallback(() => {
+    setState("loading");
+    fetchRecentPicks(30).then((data) => {
+      if (data === null) {
+        setState("error");
+        return;
+      }
+      setRows(data);
+      setState("ready");
+    });
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-10">
+      <div className="flex items-center justify-between mb-8 anim-in">
+        <div>
+          <p className="text-fuchsia-400 font-semibold tracking-widest text-sm mb-2">COMMUNITY</p>
+          <h1 className="font-title text-3xl font-black">다른 사람들의 빌드</h1>
+        </div>
+        <button
+          onClick={load}
+          disabled={state === "loading"}
+          className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 transition-colors disabled:opacity-50"
+          title="새로고침"
+        >
+          <RefreshIcon className={`w-5 h-5 ${state === "loading" ? "animate-spin" : ""}`} />
+        </button>
+      </div>
+
+      {state === "error" && (
+        <p className="text-center text-slate-400 py-16">불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+      )}
+      {state === "ready" && rows.length === 0 && (
+        <p className="text-center text-slate-400 py-16">아직 아무도 빌드를 완성하지 않았어요. 첫 주인공이 되어보세요!</p>
+      )}
+      {state === "ready" && rows.length > 0 && (
+        <div className="space-y-3">
+          {rows.map((row, i) => (
+            <div
+              key={i}
+              className="anim-in flex items-center gap-4 bg-slate-900/60 border border-slate-800 rounded-2xl p-4"
+              style={{ animationDelay: `${Math.min(i, 10) * 40}ms` }}
+            >
+              <ChampionAvatar champion={{ id: row.champion_id, name: row.champion_name }} size="w-14 h-14" textSize="text-lg" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-2 mb-1.5">
+                  <span className="font-bold truncate">{row.champion_name}</span>
+                  <span className="text-xs text-slate-500 shrink-0">{timeAgo(row.created_at)}</span>
+                </div>
+                <div className="flex gap-2">
+                  {row.augments.map((stored, j) => {
+                    const a = resolveStoredAugment(stored);
+                    const meta = window.TIER_META[a.tier];
+                    return (
+                      <div
+                        key={j}
+                        title={a.name}
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center bg-slate-800/80 border ${meta.border}`}
+                      >
+                        <AugmentIcon augment={a} size="w-6 h-6" emojiSize="text-lg" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={onBack}
+        className="mt-8 w-full px-6 py-3 rounded-lg font-bold bg-slate-800 hover:bg-slate-700 border border-slate-600 transition-colors"
+      >
+        ← 돌아가기
+      </button>
+    </div>
+  );
+}
+
+function ResultScreen({ champion, picks, onRestart, onViewCommunity }) {
   // idle(대기) | generating(이미지 생성 중) | ready(생성 완료, 미리보기 표시) | copied(복사됨) | error(실패)
   const [shareStatus, setShareStatus] = useState("idle");
   const [shareImage, setShareImage] = useState(null); // { url, blob, fileName }
@@ -1105,6 +1230,13 @@ function ResultScreen({ champion, picks, onRestart }) {
       {shareStatus === "error" && (
         <p className="text-center text-sm text-rose-400 mt-3">이미지 생성에 실패했어요. 다시 시도해주세요.</p>
       )}
+
+      <button
+        onClick={onViewCommunity}
+        className="mt-3 w-full px-6 py-3 rounded-lg font-bold text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 transition-colors"
+      >
+        👀 다른 사람들이 뽑은 빌드 보러가기
+      </button>
     </div>
   );
 }
@@ -1113,7 +1245,7 @@ function ResultScreen({ champion, picks, onRestart }) {
 // 루트 앱: 화면 전환 관리
 // ---------------------------------------------------------------------------
 function App() {
-  const [stage, setStage] = useState("champion"); // champion | augment | result
+  const [stage, setStage] = useState("champion"); // champion | augment | result | community
   const [champion, setChampion] = useState(null);
   const [finalPicks, setFinalPicks] = useState(null);
 
@@ -1145,8 +1277,14 @@ function App() {
         />
       )}
       {stage === "result" && champion && finalPicks && (
-        <ResultScreen champion={champion} picks={finalPicks} onRestart={handleRestart} />
+        <ResultScreen
+          champion={champion}
+          picks={finalPicks}
+          onRestart={handleRestart}
+          onViewCommunity={() => setStage("community")}
+        />
       )}
+      {stage === "community" && <CommunityPicksScreen onBack={() => setStage("result")} />}
     </div>
   );
 }
