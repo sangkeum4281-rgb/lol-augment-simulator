@@ -12,6 +12,50 @@ const TIER_ORDER = ["silver", "gold", "prism"];
 // 가끔 등장하는 황금 주사위로 리롤하면 같은 등급이 아니라 한 단계 위 등급으로 바뀜(실버→골드→프리즘).
 const GOLDEN_REROLL_CHANCE = 0.05;
 
+// ── 방문/뽑기 통계 (Supabase) ──────────────────────────────────────────────
+// anon(공개) key라 브라우저에 그대로 노출돼도 괜찮음: DB 쪽에 RLS로
+// "insert만 허용, select는 전면 차단" 정책이 걸려있어서 이 키로는 데이터를
+// 못 읽고, 오직 pick_counts() 함수로 집계된 숫자만 가져올 수 있음.
+const SUPABASE_URL = "https://taoqimkfqmxmwhvuafes.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhb3FpbWtmcW14bXdodnVhZmVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MTU3MTEsImV4cCI6MjEwNDQ5MTcxMX0.N0k7IOfZEG-0nz0sfwXKHJDBwu4afEapqSwGAT6wA9o";
+const statsClient =
+  window.supabase && window.supabase.createClient
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+// 완성된 빌드 하나를 기록. 실패해도(네트워크 끊김, 광고 차단기 등) 게임 진행에는
+// 영향 없도록 조용히 무시한다.
+async function logPick(champion, picks) {
+  if (!statsClient) return;
+  try {
+    await statsClient.from("picks").insert({
+      champion_id: champion.id,
+      champion_name: champion.name,
+      augments: LEVELS.map((lv) => ({
+        level: lv,
+        id: picks[lv].id,
+        name: picks[lv].name,
+        tier: picks[lv].tier,
+      })),
+    });
+  } catch (e) {
+    console.warn("[stats] pick 기록 실패:", e);
+  }
+}
+
+// 누적/오늘 뽑기 수 집계 조회. 실패 시 null 반환(화면에서는 숨김 처리).
+async function fetchPickCounts() {
+  if (!statsClient) return null;
+  try {
+    const { data, error } = await statsClient.rpc("pick_counts");
+    if (error || !data || !data[0]) return null;
+    return { total: Number(data[0].total), today: Number(data[0].today) };
+  } catch (e) {
+    console.warn("[stats] 카운트 조회 실패:", e);
+    return null;
+  }
+}
+
 function nextTier(tier) {
   const idx = TIER_ORDER.indexOf(tier);
   return TIER_ORDER[Math.min(idx + 1, TIER_ORDER.length - 1)];
@@ -136,6 +180,17 @@ function ChampionSelectScreen({ onConfirm }) {
   // 검색해서 직접 고르는 대신, 실제 아수라장처럼 "시작하기"를 누르면 173명 전체 로스터에서
   // 무작위 3명이 나오고 그중 하나를 고르는 방식
   const [candidates, setCandidates] = useState(null);
+  const [pickCounts, setPickCounts] = useState(null); // { total, today } | null(로딩 전/실패 시 숨김)
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPickCounts().then((counts) => {
+      if (!cancelled) setPickCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const rollChampions = () => {
     const pool = window.CHAMPIONS.slice();
@@ -160,12 +215,20 @@ function ChampionSelectScreen({ onConfirm }) {
       </header>
 
       {!candidates ? (
-        <button
-          onClick={rollChampions}
-          className="anim-in px-10 py-5 rounded-2xl text-xl font-black bg-gradient-to-r from-sky-500 to-fuchsia-500 hover:brightness-110 text-white shadow-[0_0_30px_rgba(56,189,248,0.4)] transition-all"
-        >
-          🎲 아수라장 시작하기
-        </button>
+        <div className="flex flex-col items-center gap-4">
+          <button
+            onClick={rollChampions}
+            className="anim-in px-10 py-5 rounded-2xl text-xl font-black bg-gradient-to-r from-sky-500 to-fuchsia-500 hover:brightness-110 text-white shadow-[0_0_30px_rgba(56,189,248,0.4)] transition-all"
+          >
+            🎲 아수라장 시작하기
+          </button>
+          {pickCounts && (
+            <p className="anim-in text-sm text-slate-500">
+              🔥 지금까지 <span className="text-slate-300 font-bold">{pickCounts.total.toLocaleString()}</span>명,
+              오늘 <span className="text-slate-300 font-bold">{pickCounts.today.toLocaleString()}</span>명이 뽑았어요
+            </p>
+          )}
+        </div>
       ) : (
         <div className="w-full anim-in">
           <div className="grid grid-cols-3 gap-4 sm:gap-6 mb-8">
@@ -1077,6 +1140,7 @@ function App() {
           onFinish={(picks) => {
             setFinalPicks(picks);
             setStage("result");
+            logPick(champion, picks); // 완성 즉시 기록, 실패해도 화면 전환은 그대로 진행
           }}
         />
       )}
