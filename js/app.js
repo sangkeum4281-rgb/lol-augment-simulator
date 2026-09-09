@@ -57,7 +57,7 @@ async function fetchPickCounts() {
 }
 
 // 다른 사람들이 최근에 뽑은 빌드 목록 조회 (최신순). 실패 시 null.
-async function fetchRecentPicks(limit = 30) {
+async function fetchRecentPicks(limit = 20) {
   if (!statsClient) return null;
   try {
     const { data, error } = await statsClient
@@ -114,10 +114,13 @@ function weightedPickOne(items, weightFn) {
 function isQuestAugment(augment) {
   return augment.name.startsWith("퀘스트:");
 }
-// "특정 챔피언 전용" 증강(예: 아리 전용 "소나타")은 다른 챔피언에게는 아예 뜨면 안 되므로,
-// 궁합 가중치로 확률을 낮추는 게 아니라 풀 자체에서 완전히 제외한다.
+// "특정 챔피언 전용" 증강(예: 아리 전용 "소나타")은 다른 챔피언에게는 아예 뜨면 안 되고,
+// "적을 이동 불가 상태로 만들면 ~" 류(requiresCC)는 하드 CC 스킬이 없는 챔피언에게는 발동
+// 자체가 불가능한 죽은 카드라서, 둘 다 궁합 가중치가 아니라 풀에서 완전히 제외한다.
 function isAugmentAvailableFor(augment, champion) {
-  return !augment.champion || augment.champion === (champion && champion.id);
+  if (augment.champion && augment.champion !== (champion && champion.id)) return false;
+  if (augment.requiresCC && !(champion && champion.cc)) return false;
+  return true;
 }
 function augmentPoolForLevel(level, champion = null) {
   const base = level > LEVELS[1] ? window.AUGMENTS.filter((a) => !isQuestAugment(a)) : window.AUGMENTS;
@@ -975,6 +978,30 @@ function SynergyMeter({ champion, picks }) {
   );
 }
 
+// 증강 아이콘 + 설명 툴팁. 데스크톱은 마우스 오버, 모바일은 탭으로 열고 닫힘
+// (title 속성은 터치 기기에서 안 뜨는 경우가 많아 직접 구현).
+function AugmentIconWithTooltip({ augment }) {
+  const [open, setOpen] = useState(false);
+  const meta = window.TIER_META[augment.tier];
+  return (
+    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`w-9 h-9 rounded-lg flex items-center justify-center bg-slate-800/80 border ${meta.border}`}
+      >
+        <AugmentIcon augment={augment} size="w-6 h-6" emojiSize="text-lg" />
+      </button>
+      {open && (
+        <div className="anim-in absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-3 rounded-xl bg-slate-950 border border-slate-700 shadow-xl text-left pointer-events-none">
+          <div className={`text-xs font-augment-name mb-1 ${meta.accent}`}>{augment.name}</div>
+          <div className="text-[11px] text-slate-400 leading-snug">{augment.desc}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // 화면: 다른 사람들이 뽑은 빌드 구경하기
 // ---------------------------------------------------------------------------
@@ -984,7 +1011,7 @@ function CommunityPicksScreen({ onBack }) {
 
   const load = useCallback(() => {
     setState("loading");
-    fetchRecentPicks(30).then((data) => {
+    fetchRecentPicks(20).then((data) => {
       if (data === null) {
         setState("error");
         return;
@@ -1036,19 +1063,9 @@ function CommunityPicksScreen({ onBack }) {
                   <span className="text-xs text-slate-500 shrink-0">{timeAgo(row.created_at)}</span>
                 </div>
                 <div className="flex gap-2">
-                  {row.augments.map((stored, j) => {
-                    const a = resolveStoredAugment(stored);
-                    const meta = window.TIER_META[a.tier];
-                    return (
-                      <div
-                        key={j}
-                        title={a.name}
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center bg-slate-800/80 border ${meta.border}`}
-                      >
-                        <AugmentIcon augment={a} size="w-6 h-6" emojiSize="text-lg" />
-                      </div>
-                    );
-                  })}
+                  {row.augments.map((stored, j) => (
+                    <AugmentIconWithTooltip key={j} augment={resolveStoredAugment(stored)} />
+                  ))}
                 </div>
               </div>
             </div>
