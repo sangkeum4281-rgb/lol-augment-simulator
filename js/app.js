@@ -114,15 +114,22 @@ function weightedPickOne(items, weightFn) {
 function isQuestAugment(augment) {
   return augment.name.startsWith("퀘스트:");
 }
-function augmentPoolForLevel(level) {
-  return level > LEVELS[1] ? window.AUGMENTS.filter((a) => !isQuestAugment(a)) : window.AUGMENTS;
+// "특정 챔피언 전용" 증강(예: 아리 전용 "소나타")은 다른 챔피언에게는 아예 뜨면 안 되므로,
+// 궁합 가중치로 확률을 낮추는 게 아니라 풀 자체에서 완전히 제외한다.
+function isAugmentAvailableFor(augment, champion) {
+  return !augment.champion || augment.champion === (champion && champion.id);
+}
+function augmentPoolForLevel(level, champion = null) {
+  const base = level > LEVELS[1] ? window.AUGMENTS.filter((a) => !isQuestAugment(a)) : window.AUGMENTS;
+  return base.filter((a) => isAugmentAvailableFor(a, champion));
 }
 
 // 특정 등급 안에서 하나만 뽑기 (카드 개별 리롤용). level을 넘기면 해당 레벨 기준으로
 // 퀘스트 증강 제외 규칙까지 같이 적용됨(리롤/전환 등 모든 경로에서 규칙이 새지 않도록).
-// champion을 넘기면 궁합 가중치(window.getAugmentFitWeight)만큼 확률이 살짝 기울어짐.
+// champion을 넘기면 (1) 챔피언 전용 증강 필터링 + (2) 궁합 가중치(window.getAugmentFitWeight)만큼
+// 확률이 살짝 기울어짐.
 function pickOneOfTier(tier, excludeIds = [], level = null, champion = null) {
-  const basePool = level != null ? augmentPoolForLevel(level) : window.AUGMENTS;
+  const basePool = level != null ? augmentPoolForLevel(level, champion) : window.AUGMENTS.filter((a) => isAugmentAvailableFor(a, champion));
   const candidates = basePool.filter((a) => a.tier === tier && !excludeIds.includes(a.id));
   const pool = candidates.length > 0 ? candidates : basePool.filter((a) => a.tier === tier);
   if (champion) return weightedPickOne(pool, (a) => window.getAugmentFitWeight(a, champion));
@@ -165,7 +172,7 @@ function pickNUniqueWeighted(list, n, weightFn) {
 function makePool(level, excludeIds = [], champion = null) {
   const weights = window.LEVEL_TIER_WEIGHTS[level];
   const roundTier = weightedPickOne(TIER_ORDER, (tier) => weights[tier]);
-  const basePool = augmentPoolForLevel(level);
+  const basePool = augmentPoolForLevel(level, champion);
 
   const candidates = basePool.filter((a) => a.tier === roundTier && !excludeIds.includes(a.id));
   const pool = candidates.length >= 3 ? candidates : basePool.filter((a) => a.tier === roundTier);
